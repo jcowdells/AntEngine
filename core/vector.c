@@ -74,6 +74,15 @@ int vectorGet(const Vector* vector, const int index, void* data) {
     return 0;
 }
 
+int vectorGetPtr(const Vector* vector, const int index, void** data_ptr) {
+    // ensure index in range
+    if (index < 0 || index >= vector->num_items)
+        return -1;
+
+    *data_ptr = vector->array + index * vector->block_size;
+    return 0;
+}
+
 int vectorSet(const Vector* vector, const int index, const void* data) {
     // ensure index in range
     if (index < 0 || index >= vector->num_items)
@@ -81,6 +90,22 @@ int vectorSet(const Vector* vector, const int index, const void* data) {
 
     // copy in data
     vectorWrite(vector, index, data);
+    return 0;
+}
+
+int vectorRemove(Vector* vector, const int index) {
+    // ensure index in range
+    if (index < 0 || index >= vector->num_items)
+        return -1;
+
+    memmove(
+        vector->array + index * vector->block_size,          // overwrite current index
+        vector->array + (index + 1) * vector->block_size,    // from back of array
+        (vector->num_items - index - 1) * vector->block_size // size of block after this index
+    );
+
+    vector->num_items--;
+
     return 0;
 }
 

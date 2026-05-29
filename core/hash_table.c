@@ -23,7 +23,7 @@ int hashTableCreate(HashTable* hash_table, const int size, const int allow_dupli
 
 static int hashTableHash(const HashTable* hash_table, const short x, const short y) {
     // random primes
-    return (x * 31 + y * 37) % hash_table->size;
+    return abs(x * 31 + y * 37) % hash_table->size;
 }
 
 static int hashTableTooFull(const HashTable* hash_table) {
@@ -53,17 +53,31 @@ static int hashTablePutNoRehash(HashTable* hash_table, const short x, const shor
             while (loop_node->next) {
                 loop_node = loop_node->next;
             }
+            loop_node->next = hash_node;
         } else {
+            int exists = 0;
+            HashNode** next = &hash_table->array[index];
+
             // if not, make sure this slot has not been taken.
             while (loop_node->next) {
-                if (loop_node->x == x && loop_node->y == y)
-                    return -1;
+                if (loop_node->x == x && loop_node->y == y) {
+                    exists = 1;
+                    break;
+                }
+                next = &loop_node->next;
                 loop_node = loop_node->next;
             }
             if (loop_node->x == x && loop_node->y == y)
-                return -1;
+                exists = 1;
+
+            if (exists) {
+                hash_node->next = loop_node->next;
+                free(loop_node);
+                *next = hash_node;
+                return 0;
+            }
+            loop_node->next = hash_node;
         }
-        loop_node->next = hash_node;
     } else {
         // no collision, chuck it into the array
         hash_table->array[index] = hash_node;
@@ -114,10 +128,11 @@ int hashTableHas(const HashTable* hash_table, const short x, const short y) {
     const int index = hashTableHash(hash_table, x, y);
     const HashNode* loop_node = hash_table->array[index];
 
-    do {
+    while (loop_node) {
         if (loop_node->x == x && loop_node->y == y)
             return 1;
-    } while ((loop_node = loop_node->next));
+        loop_node = loop_node->next;
+    }
 
     return 0;
 }
@@ -183,6 +198,28 @@ int hashTableGetAll(const HashTable* hash_table, const short x, const short y, v
         if (loop_node->x == x && loop_node->y == y)
             (*data)[i++] = loop_node->data;
         loop_node = loop_node->next;
+    }
+
+    return 0;
+}
+
+int hashTableGetPairs(const HashTable* hash_table, HashPair** data, int* len_data) {
+    *len_data = 0;
+    *data = malloc(hash_table->num_items * sizeof(HashNode));
+    if (!*data) {
+        *data = 0;
+        return -1;
+    }
+
+    for (int i = 0; i < hash_table->size; i++) {
+        const HashNode* loop_node = hash_table->array[i];
+        while (loop_node) {
+            (*data)[*len_data].x = loop_node->x;
+            (*data)[*len_data].y = loop_node->y;
+            (*data)[*len_data].data = loop_node->data;
+            *len_data += 1;
+            loop_node = loop_node->next;
+        }
     }
 
     return 0;
